@@ -17,6 +17,7 @@ type Task struct {
 	Status      Status    `json:"status"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	RecurrenceId *int64   `json:"recurrence_id,omitempty`
 }
 
 func (s Status) Valid() bool {
