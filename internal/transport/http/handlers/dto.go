@@ -13,21 +13,43 @@ type taskMutationDTO struct {
 }
 
 type taskDTO struct {
-	ID          int64             `json:"id"`
-	Title       string            `json:"title"`
-	Description string            `json:"description"`
-	Status      taskdomain.Status `json:"status"`
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
+	ID           int64             `json:"id"`
+	Title        string            `json:"title"`
+	Description  string            `json:"description"`
+	Status       taskdomain.Status `json:"status"`
+	CreatedAt    time.Time         `json:"created_at"`
+	UpdatedAt    time.Time         `json:"updated_at"`
+	RecurrenceID *int64            `json:"recurrence_id,omitempty"`
 }
 
-func newTaskDTO(task *taskdomain.Task) taskDTO {
+func newTaskDTO(t *taskdomain.Task) taskDTO {
 	return taskDTO{
-		ID:          task.ID,
-		Title:       task.Title,
-		Description: task.Description,
-		Status:      task.Status,
-		CreatedAt:   task.CreatedAt,
-		UpdatedAt:   task.UpdatedAt,
+		ID:           t.ID,
+		Title:        t.Title,
+		Description:  t.Description,
+		Status:       t.Status,
+		CreatedAt:    t.CreatedAt,
+		UpdatedAt:    t.UpdatedAt,
+		RecurrenceID: t.RecurrenceID,
 	}
+}
+
+type recurrenceRequest struct {
+	Type       string   `json:"type"`
+	Interval   *int     `json:"interval,omitempty"`
+	DayOfMonth *int     `json:"day_of_month,omitempty"`
+	WeekDays   []int    `json:"week_days,omitempty"`
+	Dates      []string `json:"dates,omitempty"`
+	Parity     *string  `json:"parity,omitempty"`
+}
+
+type recurrenceResponse struct {
+	ID               int64    `json:"id"`
+	Type             string   `json:"type"`
+	Interval         *int     `json:"interval,omitempty"`
+	DayOfMonth       *int     `json:"day_of_month,omitempty"`
+	WeekDays         []int    `json:"week_days,omitempty"`
+	Dates            []string `json:"dates,omitempty"`
+	Parity           *string  `json:"parity,omitempty"`
+	NextOccurrenceAt string   `json:"next_occurrence_at"`
 }

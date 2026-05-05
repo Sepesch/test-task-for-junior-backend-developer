@@ -147,6 +147,8 @@ func writeUsecaseError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, err)
 	case errors.Is(err, taskusecase.ErrInvalidInput):
 		writeError(w, http.StatusBadRequest, err)
+	case errors.Is(err, taskdomain.ErrNotFound), errors.Is(err, taskdomain.ErrRecurrenceNotFound):
+    	writeError(w, http.StatusNotFound, err)
 	default:
 		writeError(w, http.StatusInternalServerError, err)
 	}
@@ -164,3 +166,110 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 
 	_ = json.NewEncoder(w).Encode(payload)
 }
+
+func mapRecurrenceToResponse(id int64, rec taskdomain.Recurrence, nextAt time.Time) recurrenceResponse {
+	resp := recurrenceResponse{
+		ID:               id,
+		Type:             rec.Type(),
+		NextOccurrenceAt: nextAt.Format("2006-01-02"),
+	}
+	switch r := rec.(type) {
+	case taskdomain.DailyRecurrence:
+		resp.Interval = &r.Interval
+	case taskdomain.MonthlyRecurrence:
+		resp.DayOfMonth = &r.DayOfMonth
+	case taskdomain.WeeklyRecurrence:
+		resp.WeekDays = r.WeekDays
+	case taskdomain.SpecificDatesRecurrence:
+		resp.Dates = r.Dates
+	case taskdomain.EvenOddRecurrence:
+		resp.Parity = &r.Parity
+	}
+	return resp
+}
+
+func mapRequestToRecurrence(req recurrenceRequest) (taskdomain.Recurrence, error) {
+	switch req.Type {
+	case "daily":
+		if req.Interval == nil {
+			return nil, &validationError{"missing interval for daily"}
+		}
+		return taskdomain.DailyRecurrence{Interval: *req.Interval}, nil
+	case "monthly":
+		if req.DayOfMonth == nil {
+			return nil, &validationError{"missing day_of_month for monthly"}
+		}
+		return taskdomain.MonthlyRecurrence{DayOfMonth: *req.DayOfMonth}, nil
+	case "weekly":
+		if len(req.WeekDays) == 0 {
+			return nil, &validationError{"missing week_days for weekly"}
+		}
+		return taskdomain.WeeklyRecurrence{WeekDays: req.WeekDays}, nil
+	case "specific_dates":
+		if len(req.Dates) == 0 {
+			return nil, &validationError{"missing dates for specific_dates"}
+		}
+		return taskdomain.SpecificDatesRecurrence{Dates: req.Dates}, nil
+	case "even_odd":
+		if req.Parity == nil {
+			return nil, &validationError{"missing parity for even_odd"}
+		}
+		return taskdomain.EvenOddRecurrence{Parity: *req.Parity}, nil
+	default:
+		return nil, &validationError{"unknown recurrence type: " + req.Type}
+	}
+}
+
+func (h *TaskHandler) GetRecurrence(w http.ResponseWriter, r *http.Request) {
+	id, err := getIDFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	recID, rec, nextAt, err := h.usecase.GetRecurrence(r.Context(), id)
+	if err != nil {
+		writeUsecaseError(w, err)
+		return
+	}
+	resp := mapRecurrenceToResponse(recID, rec, nextAt)
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (h *TaskHandler) SetRecurrence(w http.ResponseWriter, r *http.Request) {
+	id, err := getIDFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	var req recurrenceRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	rec, err := mapRequestToRecurrence(req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := h.usecase.SetRecurrence(r.Context(), id, rec); err != nil {
+		writeUsecaseError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *TaskHandler) DeleteRecurrence(w http.ResponseWriter, r *http.Request) {
+	id, err := getIDFromRequest(r)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	if err := h.usecase.DeleteRecurrence(r.Context(), id); err != nil {
+		writeUsecaseError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+type validationError struct{ msg string }
+func (e *validationError) Error() string { return e.msg }
