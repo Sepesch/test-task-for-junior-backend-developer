@@ -131,6 +131,51 @@
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
+    },
+    "/api/v1/tasks/{id}/recurrence": {
+      "get": {
+        "tags": ["Recurrence"],
+        "summary": "Get recurrence settings for a task",
+        "parameters": [{ "$ref": "#/components/parameters/TaskID" }],
+        "responses": {
+          "200": {
+            "description": "Recurrence settings",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RecurrenceResponse" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "put": {
+        "tags": ["Recurrence"],
+        "summary": "Set or replace recurrence for a task",
+        "parameters": [{ "$ref": "#/components/parameters/TaskID" }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RecurrenceRequest" }
+            }
+          }
+        },
+        "responses": {
+          "204": { "description": "Recurrence set" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "tags": ["Recurrence"],
+        "summary": "Delete recurrence from a task",
+        "parameters": [{ "$ref": "#/components/parameters/TaskID" }],
+        "responses": {
+          "204": { "description": "Recurrence deleted" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
     }
   },
   "components": {
@@ -149,6 +194,18 @@
           "application/json": {
             "schema": { "$ref": "#/components/schemas/Error" }
           }
+        }
+      }
+    },
+    "parameters": {
+      "TaskID": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "format": "int64",
+          "minimum": 1
         }
       }
     },
@@ -214,6 +271,12 @@
             "type": "string",
             "format": "date-time",
             "example": "2026-03-24T00:00:00Z"
+          },
+          "recurrence_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "example": 3
           }
         }
       },
@@ -221,6 +284,55 @@
         "type": "object",
         "properties": {
           "error": { "type": "string", "example": "task not found" }
+        }
+      },
+      "RecurrenceRequest": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["daily", "monthly", "weekly", "specific_dates", "even_odd"]
+          },
+          "interval": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "for daily"
+          },
+          "day_of_month": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "description": "for monthly"
+          },
+          "week_days": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1, "maximum": 7 },
+            "description": "for weekly (1=Monday..7=Sunday)"
+          },
+          "dates": {
+            "type": "array",
+            "items": { "type": "string", "format": "date" },
+            "description": "for specific_dates"
+          },
+          "parity": {
+            "type": "string",
+            "enum": ["even", "odd"],
+            "description": "for even_odd"
+          }
+        }
+      },
+      "RecurrenceResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "type": { "type": "string", "enum": ["daily", "monthly", "weekly", "specific_dates", "even_odd"] },
+          "interval": { "type": "integer" },
+          "day_of_month": { "type": "integer" },
+          "week_days": { "type": "array", "items": { "type": "integer" } },
+          "dates": { "type": "array", "items": { "type": "string", "format": "date" } },
+          "parity": { "type": "string", "enum": ["even", "odd"] },
+          "next_occurrence_at": { "type": "string", "format": "date" }
         }
       }
     }
